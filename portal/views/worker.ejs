@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ForgeQuest — Worker Portal</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-icon">⚒️</span>
+        <h1>ForgeQuest</h1>
+        <span class="badge">Digital Factory</span>
+      </div>
+      <nav class="nav">
+        <a href="#tasks" class="nav-link active">Tasks</a>
+        <a href="#assets" class="nav-link">Assets</a>
+        <a href="#verify" class="nav-link">Verify</a>
+        <a href="#deliveries" class="nav-link">Deliveries</a>
+      </nav>
+      <div class="header-status">
+        <span class="status-dot"></span>
+        <span>System Online</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Dashboard Stats -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value"><%= tasks.filter(t => t.status === 'in-progress').length %></div>
+        <div class="stat-label">Active Tasks</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= pendingVerifications.length %></div>
+        <div class="stat-label">Pending Verifications</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= assets.filter(a => a.status === 'available').length %></div>
+        <div class="stat-label">Available Assets</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= assets.filter(a => a.status === 'sold').length %></div>
+        <div class="stat-label">Delivered</div>
+      </div>
+    </section>
+
+    <!-- Tasks Section -->
+    <section id="tasks" class="section">
+      <div class="section-header">
+        <h2>📋 Worker Tasks</h2>
+        <span class="section-subtitle">Milestone-based account & blueprint assignments</span>
+      </div>
+      <div class="card">
+        <% if (tasks.length === 0) { %>
+          <div class="empty-state">
+            <p>No tasks assigned yet. Tasks will appear here when the lead assigns work.</p>
+          </div>
+        <% } else { %>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Task ID</th>
+                  <th>Title</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% tasks.forEach(task => { %>
+                  <tr class="task-row" data-task-id="<%= task.id %>">
+                    <td class="task-id"><code><%= task.id.slice(0, 8) %>...</code></td>
+                    <td>
+                      <strong><%= task.title %></strong>
+                      <p class="task-desc"><%= task.description ? task.description.slice(0, 120) : 'No description' %></p>
+                    </td>
+                    <td>
+                      <span class="status-badge status-<%= task.status %>"><%= task.status %></span>
+                    </td>
+                    <td>
+                      <button class="btn btn-sm btn-upload" onclick="showVerifyModal('<%= task.id %>', '<%= task.title.replace(/'/g, "\\'") %>')">
+                        📸 Upload Proof
+                      </button>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Assets Section (Digital Catalog) -->
+    <section id="assets" class="section">
+      <div class="section-header">
+        <h2>🎮 Digital Asset Catalog</h2>
+        <span class="section-subtitle">Account credentials & stat milestones</span>
+      </div>
+      <div class="asset-grid">
+        <% if (assets.length === 0) { %>
+          <div class="card empty-state" style="grid-column: 1/-1;">
+            <p>No digital assets in the catalog. Use the API to add accounts and blueprints.</p>
+          </div>
+        <% } else { %>
+          <% assets.forEach(asset => { %>
+            <div class="asset-card card">
+              <div class="asset-type-badge type-<%= asset.type %>">
+                <%= asset.type === 'blueprint' ? '📄 Blueprint' : '👤 Account' %>
+              </div>
+              <h3 class="asset-name"><%= asset.name %></h3>
+              <p class="asset-game">🎯 <%= asset.game %></p>
+              <% if (asset.stats_milestones) { %>
+                <div class="asset-stats">
+                  <h4>📊 Stats & Milestones</h4>
+                  <pre class="stats-pre"><%= asset.stats_milestones %></pre>
+                </div>
+              <% } %>
+              <% if (asset.credentials && asset.type === 'account') { %>
+                <div class="asset-creds">
+                  <h4>🔑 Credentials</h4>
+                  <pre class="creds-pre"><%= asset.credentials %></pre>
+                </div>
+              <% } %>
+              <% if (asset.blueprint_url && asset.type === 'blueprint') { %>
+                <div class="asset-url">
+                  <h4>🔗 Blueprint URL</h4>
+                  <code><%= asset.blueprint_url %></code>
+                </div>
+              <% } %>
+              <div class="asset-footer">
+                <span class="asset-price">$<%= asset.price.toFixed(2) %></span>
+                <span class="status-badge status-<%= asset.status %>"><%= asset.status %></span>
+              </div>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Verification Section -->
+    <section id="verify" class="section">
+      <div class="section-header">
+        <h2>✅ Screenshot Verification</h2>
+        <span class="section-subtitle">Pending milestone proof reviews</span>
+      </div>
+      <div class="card">
+        <% if (pendingVerifications.length === 0) { %>
+          <div class="empty-state">
+            <p>No pending verifications. When workers upload milestone screenshots, they'll appear here for review.</p>
+          </div>
+        <% } else { %>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Task</th>
+                  <th>Milestone</th>
+                  <th>Screenshot</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% pendingVerifications.forEach(v => { %>
+                  <tr>
+                    <td><%= v.task_title || v.task_id.slice(0, 8) %></td>
+                    <td><%= v.milestone_description %></td>
+                    <td>
+                      <a href="<%= v.screenshot_path %>" target="_blank" class="btn btn-sm btn-outline">
+                        🖼️ View Screenshot
+                      </a>
+                    </td>
+                    <td class="action-btns">
+                      <button class="btn btn-sm btn-success" onclick="verifyAction('<%= v.id %>', 'verify')">✅ Verify</button>
+                      <button class="btn btn-sm btn-danger" onclick="verifyAction('<%= v.id %>', 'reject')">❌ Reject</button>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </section>
+
+    <!-- Deliveries Section -->
+    <section id="deliveries" class="section">
+      <div class="section-header">
+        <h2>📬 Delivery Log</h2>
+        <span class="section-subtitle">Automated email delivery tracking</span>
+      </div>
+      <div class="card" id="deliveries-content">
+        <div class="loading">Loading deliveries...</div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Upload Verification Modal -->
+  <div id="verifyModal" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closeVerifyModal()">&times;</span>
+      <h2>📸 Upload Milestone Screenshot</h2>
+      <p id="modalTaskInfo" class="modal-task-info"></p>
+      <form id="verifyForm" enctype="multipart/form-data">
+        <input type="hidden" name="taskId" id="verifyTaskId">
+        <input type="hidden" name="workerId" value="worker-default">
+        
+        <div class="form-group">
+          <label for="milestoneDescription">Milestone Description</label>
+          <textarea name="milestoneDescription" id="milestoneDescription" rows="3" 
+                    placeholder="Describe the milestone completed (e.g., 'Achieved 99 Strength', 'Completed Dragon Slayer quest')" required></textarea>
+        </div>
+        
+        <div class="form-group">
+          <label for="screenshot">Screenshot (PNG, JPG, WEBP — max 10MB)</label>
+          <div class="file-upload-area">
+            <input type="file" name="screenshot" id="screenshotInput" accept=".png,.jpg,.jpeg,.gif,.webp" required>
+            <div id="filePreview" class="file-preview"></div>
+          </div>
+        </div>
+        
+        <div class="form-actions">
+          <button type="button" class="btn btn-outline" onclick="closeVerifyModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit for Verification</button>
+        </div>
+      </form>
+      <div id="uploadStatus" class="upload-status"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="container">
+      <p>ForgeQuest Digital Factory &mdash; Worker Portal v1.0</p>
+      <p class="footer-api">API: <code>/api/health</code> | <code>/api/assets</code> | <code>/api/deliver</code></p>
+    </div>
+  </footer>
+
+  <script src="/js/portal.js"></script>
+</body>
+</html>

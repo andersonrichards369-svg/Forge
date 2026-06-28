@@ -1,0 +1,66 @@
+# Deploy to Production
+#
+# This workflow deploys the ForgeQuest app to a VPS/cloud server.
+# Configure the following secrets in your GitHub repo:
+#   DEPLOY_HOST    — server IP or hostname
+#   DEPLOY_USER    — SSH username
+#   DEPLOY_KEY     — SSH private key
+#   DEPLOY_PATH    — target path on server (e.g., /var/www/forgequest)
+#   SMTP_HOST      — SMTP server (optional, for email delivery)
+#   SMTP_USER      — SMTP username
+#   SMTP_PASS      — SMTP password
+#   EMAIL_FROM     — From address for delivery emails
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --omit=dev
+
+      - name: Create .env
+        run: |
+          cat > .env << EOF
+          PORT=${{ secrets.PORT || '3000' }}
+          HOST=${{ secrets.HOST || '0.0.0.0' }}
+          SMTP_HOST=${{ secrets.SMTP_HOST || '' }}
+          SMTP_PORT=${{ secrets.SMTP_PORT || '587' }}
+          SMTP_USER=${{ secrets.SMTP_USER || '' }}
+          SMTP_PASS=${{ secrets.SMTP_PASS || '' }}
+          EMAIL_FROM=${{ secrets.EMAIL_FROM || 'noreply@forgequest.io' }}
+          EOF
+
+      - name: Deploy via rsync
+        uses: easingthemes/ssh-deploy@v5.0.0
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_KEY }}
+          REMOTE_HOST: ${{ secrets.DEPLOY_HOST }}
+          REMOTE_USER: ${{ secrets.DEPLOY_USER }}
+          TARGET: ${{ secrets.DEPLOY_PATH }}
+          ARGS: -avz --delete --exclude='node_modules' --exclude='.git' --exclude='.env'
+
+      - name: Restart server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_KEY }}
+          script: |
+            cd ${{ secrets.DEPLOY_PATH }}
+            npm install --omit=dev
+            pm2 restart forgequest 2>/dev/null || pm2 start server.js --name forgequest
+            pm2 save
