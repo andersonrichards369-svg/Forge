@@ -116,11 +116,28 @@
     return overlay;
   }
 
-  // Show purchase modal
-  function showPurchaseModal(assetId, assetName, assetPrice) {
+  // Show purchase modal — resolves real asset ID from API
+  async function showPurchaseModal(assetId, assetName, assetPrice) {
     const overlay = document.getElementById('purchase-overlay') || createPurchaseModal();
     
-    document.getElementById('purchase-asset-id').value = assetId;
+    // Try to resolve the real asset ID from the database
+    let realAssetId = assetId;
+    try {
+      const resp = await fetch('/api/assets');
+      const result = await resp.json();
+      if (result.success && result.data) {
+        // Match by name or price to find the real asset
+        const match = result.data.find(a => 
+          (assetName && a.name && a.name.toLowerCase().includes(assetName.toLowerCase().split('—')[0].trim())) ||
+          (assetPrice && parseFloat(a.price) === parseFloat(assetPrice))
+        );
+        if (match) realAssetId = match.id;
+      }
+    } catch (e) {
+      // Fall back to demo ID
+    }
+    
+    document.getElementById('purchase-asset-id').value = realAssetId;
     document.getElementById('purchase-asset-name').textContent = assetName || 'Premium Asset';
     document.getElementById('purchase-price-display').textContent = `$${parseFloat(assetPrice || 0).toFixed(2)}`;
     document.getElementById('purchase-asset-price').value = assetPrice || '0';
